@@ -8,71 +8,65 @@ app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Registration Endpoint
 app.post('/api/register', async (req, res) => {
-  const { fullName, email, role } = req.body;
-  const { data, error } = await supabase
-    .from('users')
-    .insert([{ full_name: fullName, email, role }])
-    .select();
-
-  if (error) return res.status(400).json({ success: false, error: error.message });
-  res.json({ success: true, user: data[0] });
-});
-
-// Login Endpoint
-app.post('/api/login', async (req, res) => {
-  const { email } = req.body;
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .single();
-
-  if (error || !data) return res.status(404).json({ success: false, error: "Email-kan ma jiro" });
-  res.json({ success: true, user: data });
-});
-
-// AI Chat Endpoint
-app.post('/api/chat', async (req, res) => {
-  const { userId, userMessage } = req.body;
-
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const { fullName, email, role } = req.body;
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ full_name: fullName, email, role }])
+      .select();
 
-    const response = await fetch(url, {
+    if (error) return res.status(400).json({ success: false, error: error.message });
+    res.json({ success: true, user: data[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !data) return res.status(404).json({ success: false, error: "Email-kan ma jiro" });
+    res.json({ success: true, user: data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { userMessage } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Direct Gemini API Request
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `You are an English teacher for Somali students. Translate this to Somali and give a helpful tip: ${userMessage}` }]
-          }
-        ]
+        contents: [{
+          parts: [{ text: `You are a helpful English teacher for Somali students. Translate this to Somali and explain briefly: ${userMessage}` }]
+        }]
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Gemini Raw Error:", JSON.stringify(data));
-      return res.status(500).json({ success: false, error: data.error?.message || "Gemini API Error" });
+      console.error("Gemini Error:", data);
+      return res.status(500).json({ success: false, error: data.error?.message || "Gemini Error" });
     }
 
     const aiReply = data.candidates[0].content.parts[0].text;
-
-    // Save Chat to Supabase
-    if (userId) {
-      await supabase.from('student_chats').insert([
-        { user_id: userId, english_text: userMessage, ai_response: aiReply }
-      ]);
-    }
-
     res.json({ success: true, reply: aiReply });
+
   } catch (err) {
-    console.error("Server Error:", err);
+    console.error("Server Crash Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
