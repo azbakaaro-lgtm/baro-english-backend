@@ -44,8 +44,8 @@ app.post('/api/chat', async (req, res) => {
     const { userMessage } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Direct Gemini API Request
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // Model Endpoint cusub (gemini-2.0-flash)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
