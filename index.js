@@ -33,38 +33,46 @@ app.post('/api/login', async (req, res) => {
   res.json({ success: true, user: data });
 });
 
-// AI Chat Endpoint (Updated Gemini API)
+// AI Chat Endpoint
 app.post('/api/chat', async (req, res) => {
   const { userId, userMessage } = req.body;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `You are an English teacher for Somali students. Answer the user in clear Somali and explain their English message: ${userMessage}` }]
-        }]
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `You are an English teacher for Somali students. Translate this to Somali and give a helpful tip: ${userMessage}` }]
+          }
+        ]
       })
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
-      console.error("Gemini Error:", data);
-      return res.status(500).json({ success: false, error: "Gemini API failure" });
+      console.error("Gemini Raw Error:", JSON.stringify(data));
+      return res.status(500).json({ success: false, error: data.error?.message || "Gemini API Error" });
     }
 
     const aiReply = data.candidates[0].content.parts[0].text;
 
     // Save Chat to Supabase
-    await supabase.from('student_chats').insert([
-      { user_id: userId, english_text: userMessage, ai_response: aiReply }
-    ]);
+    if (userId) {
+      await supabase.from('student_chats').insert([
+        { user_id: userId, english_text: userMessage, ai_response: aiReply }
+      ]);
+    }
 
     res.json({ success: true, reply: aiReply });
   } catch (err) {
-    console.error(err);
+    console.error("Server Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
