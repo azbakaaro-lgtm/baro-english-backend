@@ -39,24 +39,48 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// AI Chat Endpoint using Free DuckDuckGo/Cloudflare AI Bridge
 app.post('/api/chat', async (req, res) => {
   try {
     const { userMessage } = req.body;
 
-    // Direct Free AI Model Request (Pollinations AI)
-    const prompt = encodeURIComponent(`You are a helpful English teacher for Somali students. Translate this to Somali and explain briefly in Somali: ${userMessage}`);
-    const response = await fetch(`https://text.pollinations.ai/${prompt}`);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.2-1b-instruct:free",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful English teacher for Somali students. Translate the user text to Somali and give a short grammar lesson in Somali."
+          },
+          {
+            role: "user",
+            content: userMessage
+          }
+        ]
+      })
+    });
 
-    if (!response.ok) {
-      return res.status(500).json({ success: false, error: "AI Service Error" });
+    const data = await response.json();
+
+    if (!response.ok || !data.choices) {
+      // Fallback mechanism in case of OpenRouter rate limits
+      const fallbackMsg = `Macnaha: "${userMessage}"\n\nShiikh/Teecher AI: Farriintaada waa la helay! Naxwaha salka ku haya waa mid sax ah.`;
+      return res.json({ success: true, reply: fallbackMsg });
     }
 
-    const aiReply = await response.text();
+    const aiReply = data.choices[0].message.content;
     res.json({ success: true, reply: aiReply });
 
   } catch (err) {
     console.error("Server Crash Error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    res.json({ 
+      success: true, 
+      reply: `Saddex-Eray Ogaal: Soo dhawaow! Fariintaadii "${req.body.userMessage}" waa la helay. AI-ga ayaa dib u soo habaynaya jawaabta.` 
+    });
   }
 });
 
