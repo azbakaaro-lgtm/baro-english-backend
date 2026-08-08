@@ -42,27 +42,16 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { userMessage } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
 
-    // Model Endpoint cusub (gemini-2.0-flash)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `You are a helpful English teacher for Somali students. Translate this to Somali and explain briefly: ${userMessage}` }]
-        }]
-      })
-    });
-
-    const data = await response.json();
+    // Direct Free AI Model Request (Pollinations AI)
+    const prompt = encodeURIComponent(`You are a helpful English teacher for Somali students. Translate this to Somali and explain briefly in Somali: ${userMessage}`);
+    const response = await fetch(`https://text.pollinations.ai/${prompt}`);
 
     if (!response.ok) {
-      console.error("Gemini Error:", data);
-      return res.status(500).json({ success: false, error: data.error?.message || "Gemini Error" });
+      return res.status(500).json({ success: false, error: "AI Service Error" });
     }
 
-    const aiReply = data.candidates[0].content.parts[0].text;
+    const aiReply = await response.text();
     res.json({ success: true, reply: aiReply });
 
   } catch (err) {
